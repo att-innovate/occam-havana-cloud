@@ -229,8 +229,9 @@ profile::openstack::horizon::allowed_hosts: "cloud.%{hiera('pub_domain')}"
 profile::openstack::horizon::keystone_host: "%{hiera('mgmt_ctrl_ip')}"
 profile::openstack::horizon::service_interface: "%{hiera('mgmt_interface')}"
 openstack::neutron::metadata_ip: "%{hiera('mgmt_ctrl_ip')}"
-openstack::glance::bind_host: "%{::ipaddress_eth0}"
 openstack::neutron::bind_address: "%{::ipaddress_eth0}"
+openstack::glance::bind_host: "%{::ipaddress_eth0}"
+openstack::glance::swift_store_auth_address: "http://%{hiera('mgmt_ctrl_ip')}:5000/v2.0/"
 nova::api::metadata_listen: "%{::ipaddress_eth0}"
 ##########################################################
 # API Registration
