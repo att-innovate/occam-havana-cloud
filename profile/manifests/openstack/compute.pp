@@ -110,7 +110,7 @@ class profile::openstack::compute (
   # General
   $migration_support             = true,
   $verbose                       = 'True',
-  $enabled                       = true,
+  $swift                         = true,
 ) {
 
   include sudo
@@ -228,6 +228,12 @@ class profile::openstack::compute (
   cinder_config { 'DEFAULT/volume_usage_audit': value => 'True' }
   cinder_config { 'DEFAULT/volume_usage_audit_period': value => 'hour' }
   cinder_config { 'DEFAULT/notification_driver': value => 'cinder.openstack.common.notifier.rpc_notifier' }
+
+  if $swift {
+    include profile::openstack::swift::storage
+    Class['profile::openstack::firewall']
+      -> Class['profile::openstack::swift::storage']
+  }
 
   class {'::openstack::compute':
     internal_address        => $mgmt_local_ip,
