@@ -33,6 +33,7 @@
 #
 # Copyright 2014 AT&T Foundry, unless otherwise noted.
 class profile::openstack::swift::proxy (
+  $enabled                = true,
   $swift_hash_suffix      = 'swift_hash_suffix',
   $part_power             = '18',
   $replicas               = '3',
@@ -63,125 +64,130 @@ class profile::openstack::swift::proxy (
   $operator_roles         = ['admin', 'SwiftOperator', '_member_'],
 ) {
 
-  require_param($public_address, '$public_address')
-  require_param($mgmt_ctrl_ip, '$mgmt_ctrl_ip')
-  require_param($priv_interface, '$priv_interface')
-  require_param($mgmt_interface, '$mgmt_interface')
-  require_param($proxies_ip, '$proxies_ip')
+  if str2bool($enabled) {
 
-  $mgmt_local_ip = inline_template(
-    "<%= scope.lookupvar('ipaddress_${mgmt_interface}') %>"
-  )
-
-  $priv_local_ip = inline_template(
-    "<%= scope.lookupvar('ipaddress_${priv_interface}') %>"
-  )
-
-  $log_facility_uppercase = upcase($log_facility)
-  $log_facility_lowercase = downcase($log_facility)
-
-  $proxies_ip_sorted = sort($proxies_ip)
-  $master_ctrl_ip = $proxies_ip_sorted[0]
-
-  $storages_count = size($storages_ip)
-
-  if ($storages_count > 0) {
-
-    sysctl::value { 'net.netfilter.nf_conntrack_max':
-      value   => $conntrack_size,
-    }
-
-    class { 'swift':
-      swift_hash_suffix => $swift_hash_suffix,
-    }
-
-    class { 'swift::keystone::auth':
-      auth_name         => $service_username,
-      password          => $service_password,
-      public_protocol   => $public_protocol,
-      public_port       => $public_port,
-      public_address    => $public_address,
-      port              => $internal_port,
-      admin_address     => $mgmt_ctrl_ip,
-      admin_protocol    => $internal_protocol,
-      internal_address  => $mgmt_ctrl_ip,
-      internal_protocol => $internal_protocol,
-    }
-
-    class { 'swift::keystone::dispersion':
-      auth_user => $dispersion_username,
-      auth_pass => $dispersion_password,
-    }
-
-    if ( $master_ctrl_ip == $mgmt_local_ip ) {
-      # create rings
-      class { 'swift::ringbuilder':
-        part_power     => $part_power,
-        replicas       => $replicas,
-        min_part_hours => $min_part_hours,
-        before         => Class[::swift::proxy]
+    require_param($public_address, '$public_address')
+    require_param($mgmt_ctrl_ip, '$mgmt_ctrl_ip')
+    require_param($priv_interface, '$priv_interface')
+    require_param($mgmt_interface, '$mgmt_interface')
+    require_param($proxies_ip, '$proxies_ip')
+  
+    $mgmt_local_ip = inline_template(
+      "<%= scope.lookupvar('ipaddress_${mgmt_interface}') %>"
+    )
+  
+    $priv_local_ip = inline_template(
+      "<%= scope.lookupvar('ipaddress_${priv_interface}') %>"
+    )
+  
+    $log_facility_uppercase = upcase($log_facility)
+    $log_facility_lowercase = downcase($log_facility)
+  
+    $proxies_ip_sorted = sort($proxies_ip)
+    $master_ctrl_ip = $proxies_ip_sorted[0]
+  
+    $storages_count = size($storages_ip)
+  
+    if ($storages_count > 0) {
+  
+      sysctl::value { 'net.netfilter.nf_conntrack_max':
+        value   => $conntrack_size,
       }
-      # add devices to rings
-      Ring_object_device <<| |>>
-      Ring_container_device <<| |>>
-      Ring_account_device <<| |>>
-      # share rings - rsync server
-      class { 'swift::ringserver':
-        local_net_ip => $master_ctrl_ip,
+  
+      class { 'swift':
+        swift_hash_suffix => $swift_hash_suffix,
       }
-    } else {
-      # synchronize rings with master proxy
-      swift::ringsync { ['account', 'container', 'object']:
-        ring_server => $master_ctrl_ip,
-        before      => Class[::swift::proxy]
+  
+      class { 'swift::keystone::auth':
+        auth_name         => $service_username,
+        password          => $service_password,
+        public_protocol   => $public_protocol,
+        public_port       => $public_port,
+        public_address    => $public_address,
+        port              => $internal_port,
+        admin_address     => $mgmt_ctrl_ip,
+        admin_protocol    => $internal_protocol,
+        internal_address  => $mgmt_ctrl_ip,
+        internal_protocol => $internal_protocol,
       }
-    }
-
-    proxy_server_pipeline_includer { $proxy_pipeline:
-      keystone_endpoint_ip  => $mgmt_ctrl_ip,
-      service_username      => $service_username,
-      service_password      => $service_password,
-      operator_roles        => $operator_roles,
-    }
-
-    class { '::swift::proxy':
-      proxy_local_net_ip  => $priv_local_ip,
-      port                => $proxy_bind_port,
-      workers             => $proxy_workers,
-      pipeline            => $proxy_pipeline,
-      log_facility        => "LOG_${log_facility_uppercase}",
-      require             => Class['swift'],
-    }
-
-    file {'/etc/rsyslog.d/10-swift-proxy-server.conf':
-      ensure  => present,
-      owner   => 'root',
-      group   => 'root',
-      mode    => '0644',
-      content => "${log_facility_lowercase}.* /var/log/swift/proxy-server.log\n& ~\n",
-      require => Class['::swift::proxy'],
-      notify  => Exec['restart rsyslog'],
-    }
-
-    exec {'restart rsyslog':
-      refreshonly => true,
-    }
-
-    @@haproxy::balancermember {"swift-${::fqdn}":
-      listening_service => 'swift',
-      ipaddresses       => $priv_local_ip,
-      ports             => $proxy_bind_port,
-    }
-
-    class { 'swift::dispersion':
-      auth_url      => "http://${$mgmt_ctrl_ip}:5000/v2.0/",
-      auth_user     => $dispersion_username,
-      auth_pass     => $dispersion_password,
-      coverage      => $dispersion_coverage,
-      retries       => $dispersion_retries,
-      concurrency   => $dispersion_concurrency,
-      dump_json     => $dispersion_dump_json,
-      require       => [ Class['swift'], Class['::swift::proxy'] ]
+  
+      contain swift::keystone::auth
+  
+      class { 'swift::keystone::dispersion':
+        auth_user => $dispersion_username,
+        auth_pass => $dispersion_password,
+      }
+  
+      if ( $master_ctrl_ip == $mgmt_local_ip ) {
+        # create rings
+        class { 'swift::ringbuilder':
+          part_power     => $part_power,
+          replicas       => $replicas,
+          min_part_hours => $min_part_hours,
+          before         => Class[::swift::proxy]
+        }
+        # add devices to rings
+        Ring_object_device <<| |>>
+        Ring_container_device <<| |>>
+        Ring_account_device <<| |>>
+        # share rings - rsync server
+        class { 'swift::ringserver':
+          local_net_ip => $master_ctrl_ip,
+        }
+      } else {
+        # synchronize rings with master proxy
+        swift::ringsync { ['account', 'container', 'object']:
+          ring_server => $master_ctrl_ip,
+          before      => Class[::swift::proxy]
+        }
+      }
+  
+      proxy_server_pipeline_includer { $proxy_pipeline:
+        keystone_endpoint_ip  => $mgmt_ctrl_ip,
+        service_username      => $service_username,
+        service_password      => $service_password,
+        operator_roles        => $operator_roles,
+      }
+  
+      class { '::swift::proxy':
+        proxy_local_net_ip  => $priv_local_ip,
+        port                => $proxy_bind_port,
+        workers             => $proxy_workers,
+        pipeline            => $proxy_pipeline,
+        log_facility        => "LOG_${log_facility_uppercase}",
+        require             => Class['swift'],
+      }
+  
+      file {'/etc/rsyslog.d/10-swift-proxy-server.conf':
+        ensure  => present,
+        owner   => 'root',
+        group   => 'root',
+        mode    => '0644',
+        content => "${log_facility_lowercase}.* /var/log/swift/proxy-server.log\n& ~\n",
+        require => Class['::swift::proxy'],
+        notify  => Exec['restart rsyslog'],
+      }
+  
+      exec {'restart rsyslog':
+        refreshonly => true,
+      }
+  
+      @@haproxy::balancermember {"swift-${::fqdn}":
+        listening_service => 'swift',
+        ipaddresses       => $priv_local_ip,
+        ports             => $proxy_bind_port,
+      }
+  
+      class { 'swift::dispersion':
+        auth_url      => "http://${$mgmt_ctrl_ip}:5000/v2.0/",
+        auth_user     => $dispersion_username,
+        auth_pass     => $dispersion_password,
+        coverage      => $dispersion_coverage,
+        retries       => $dispersion_retries,
+        concurrency   => $dispersion_concurrency,
+        dump_json     => $dispersion_dump_json,
+        require       => [ Class['swift'], Class['::swift::proxy'] ]
+      }
     }
   }
 }
