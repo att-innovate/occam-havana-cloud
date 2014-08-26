@@ -155,7 +155,7 @@ class profile::openstack::controller (
   $galera_synced           = [],
   $ha                      = false,
   $real_db_host            = undef,
-  $is_swift_installed      = undef,
+  $is_swift_enabled        = undef,
 ){
 
   include sudo
@@ -397,7 +397,7 @@ class profile::openstack::controller (
       }
     }
 
-    if ($glance_backend == 'swift' and ! str2bool($is_swift_installed)) {
+    if ($glance_backend == 'swift' and ! str2bool($is_swift_enabled)) {
       fail("Swift have to be enabled when it is used as a glance backend")
     }
 

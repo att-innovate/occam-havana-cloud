@@ -225,7 +225,7 @@ profile::openstack::controller::mysqld_settings:
 profile::openstack::controller::public_protocol: 'https'
 profile::openstack::controller::glance_blkdev: "%{hiera('glance_block_device')}"
 profile::openstack::controller::instance_mtu: '1400'
-profile::openstack::controller::is_swift_installed: "%{hiera('profile::openstack::swift::proxy::enabled')}"
+profile::openstack::controller::is_swift_enabled: "%{hiera('profile::openstack::swift::proxy::enabled')}"
 profile::openstack::horizon::ssl_no_verify: true
 profile::openstack::horizon::allowed_hosts: "cloud.%{hiera('pub_domain')}"
 profile::openstack::horizon::keystone_host: "%{hiera('mgmt_ctrl_ip')}"
