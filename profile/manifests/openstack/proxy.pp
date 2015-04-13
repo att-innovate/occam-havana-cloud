@@ -230,8 +230,8 @@ class profile::openstack::proxy (
         "${listen_address_mgmt}:8080",
         "${listen_address_mgmt}:8775",
       ],
-      'acl'             => $acl,
-      'use_backend'     => $backend,
+      'acl'             => $acls,
+      'use_backend'     => $backends,
       'option'          => 'forwardfor',
     },
   }
