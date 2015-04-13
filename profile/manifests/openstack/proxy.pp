@@ -74,6 +74,7 @@
 # Paul McGoldrick <tac.pmcgoldrick@gmail.com>
 # Damian Szeluga <dszeluga@mirantis.com>
 # Piotr Misiak <pmisiak@mirantis.com>
+# Jerry A. Higgs <jh1078@att.com>
 #
 # === Copyright
 #
@@ -162,7 +163,6 @@ class profile::openstack::proxy (
      $is_savanna,
      $is_ceilometer,
      $is_swift,
-     $is_rabbit,
      $is_metadata,
   ]
 
@@ -179,7 +179,6 @@ class profile::openstack::proxy (
     'savanna if is_savanna',
     'ceilometer if is_ceilometer',
     'swift if is_swift',
-    'rabbit if is_rabbit',
     'metadata if is_metadata',
   ]
 
@@ -208,6 +207,7 @@ class profile::openstack::proxy (
         'add-header X-Forwarded-Proto https',
         'add-header X-Forwarded-Protocol https',
       ],
+      'option'          => 'forwardfor',
     },
   }
 
@@ -228,11 +228,11 @@ class profile::openstack::proxy (
         "${listen_address_mgmt}:8386",
         "${listen_address_mgmt}:8777",
         "${listen_address_mgmt}:8080",
-        "${listen_address_mgmt}:5672",
         "${listen_address_mgmt}:8775",
       ],
-      'acl'             => $acls,
-      'use_backend'     => $backends,
+      'acl'             => $acl,
+      'use_backend'     => $backend,
+      'option'          => 'forwardfor',
     },
   }
 
@@ -294,11 +294,6 @@ class profile::openstack::proxy (
     },
   }
   haproxy::backend {'swift':
-    options => {
-      'option'  => [],
-    },
-  }
-  haproxy::backend {'rabbit':
     options => {
       'option'  => [],
     },

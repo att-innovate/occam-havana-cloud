@@ -37,6 +37,7 @@
 # Ari Saha <as754m@att.com>
 # Paul McGoldrick <tac.pmcgoldrick@gmail.com>
 # Kamil Swiatkowski <kswiatkowski@mirantis.com>
+# Jerry A. Higgs <jh1078@att.com>
 #
 # === Copyright
 #
@@ -113,6 +114,7 @@ class profile::openstack::controller (
   $rabbit_cluster_nodes    = false,
   $rabbit_user             = 'openstack',
   $rabbit_virtual_host     = '/',
+  $ha_rabbit_host          = undef,
   # VNC
   $vnc_enabled             = true,
   $vncproxy_host           = true,
@@ -453,7 +455,7 @@ class profile::openstack::controller (
       internal_address              => $mgmt_ctrl_ip,
       vncproxy_host                 => $bind_address,
       rabbit_host                   => $mgmt_ctrl_ip,
-      rabbit_hosts                  => $ha_rabbit_hosts,
+      rabbit_hosts                  => $mgmt_ctrl_ip,
       rabbit_cluster_nodes          => $ha_rabbit_cluster_nodes,
     }
 
